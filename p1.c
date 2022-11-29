@@ -16,10 +16,11 @@ void signal_handler(int signal) {
 }
 
 int main(int argc, char const *argv[]) {
+    int exit_status = 0;
     // if fifo path not given
     if (argc < 2) {
         fprintf(stderr, "Fatal: please give me the fifo path by using arguments\nExample: %s /tmp/test_fifo\n", argv[0]);
-        return EXIT_FAILURE;
+        return 1;
     }
     const char* fifo_path = argv[1];
     struct stat fifo_stat;
@@ -34,6 +35,7 @@ int main(int argc, char const *argv[]) {
     }
     // fork program
     pid_t childpid = -1;
+    int child_status = -1;
     switch (childpid = fork()) {
     // error case
     case -1:
@@ -49,13 +51,13 @@ int main(int argc, char const *argv[]) {
         // register signal
         if (signal(SIGUSR1, signal_handler) == SIG_ERR || signal(SIGUSR2, signal_handler) == SIG_ERR) {
             perror("p1 signal register");
-            return -1;
+            exit_status = -1; goto EXIT;
         }
         // open write fifo
         int fifo_write;
         if ((fifo_write = open(fifo_path, O_WRONLY)) < 0) {
             perror("fifo open");
-            return EXIT_FAILURE;
+            exit_status = EXIT_FAILURE; goto EXIT;
         }
         lab7_package_t package;
         // while stdin is open
@@ -72,7 +74,7 @@ int main(int argc, char const *argv[]) {
                 fprintf(stderr, "p1 write error!\n");
                 perror("fifo write");
                 close(fifo_write);
-                return EXIT_FAILURE;
+                exit_status = EXIT_FAILURE; goto EXIT;
             }
             else {
                 fprintf(stderr, "p1 sent %hu bytes to p2\n", (uint16_t)(package.size + sizeof(package.size)));
@@ -86,9 +88,12 @@ int main(int argc, char const *argv[]) {
                 usleep(100);
         }
         fprintf(stderr, "p1 stdin eofed! exiting\n");
+    EXIT:
         close(fifo_write);
         break;
     }
     kill(childpid, SIGTERM);
-    return 0;
+    wait(&child_status);
+    fprintf(stderr, "p2 %u exited with exit code %d.\n", childpid, WEXITSTATUS(child_status));
+    return exit_status;
 }
