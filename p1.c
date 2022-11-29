@@ -47,18 +47,28 @@ int main(int argc, char const *argv[]) {
         signal(SIGUSR1, signal_handler);
         signal(SIGUSR2, signal_handler);
         // open write fifo
-        int fifo_write = open(fifo_path, O_WRONLY);
+        int fifo_write;
+        if ((fifo_write = open(fifo_path, O_WRONLY)) < 0) {
+            perror("fifo open");
+            return EXIT_FAILURE;
+        }
         lab7_package_t package;
         // while stdin is open
         for (; !feof(stdin);) {
-            memset(&package, 0, sizeof(lab7_package_t));
+            // prompt
             fprintf(stderr, "p1 %u enter data: ", getpid());
-            fgets(buf, sizeof(package.chunk), stdin);
+            fgets(package.chunk, sizeof(package.chunk), stdin);
             package.size = strlen(package.chunk);
-            write(fifo_write, &package.size, sizeof(package.size));
-            write(fifo_write, package.chunk, package.size);
-            fprintf(stderr, "p1 %u send SIGUSR1 to p2 %u\n", getpid(), childpid);
+            // I use SIGUSR1 to tell subprocess to read.
             kill(childpid, SIGUSR1);
+            // check if write ok
+            // for -1 is all 1 in binary, use bitwise NOT and logical NOT to determine if they're both non -1.
+            if (!~write(fifo_write, &package.size, sizeof(package.size)) && !~write(fifo_write, package.chunk, package.size)) {
+                perror("fifo write");
+                close(fifo_write);
+                return EXIT_FAILURE;
+            }
+            fprintf(stderr, "p1 %u send SIGUSR1 to p2 %u\n", getpid(), childpid);
         }
         close(fifo_write);
         break;
