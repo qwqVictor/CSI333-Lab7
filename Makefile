@@ -8,7 +8,7 @@ all:
 
 p1: p1.c
 p2: p2.c
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -o $@ $< $(CFLAGS)
 
 .PHONY: clean
 clean: 
