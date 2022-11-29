@@ -1,5 +1,6 @@
 #include "lab7.h"
 
+uint8_t p2_acknowledged = 1;
 void signal_handler(int signal) {
     const char* template = "p1 received signal %s\n";
     switch (signal) {
@@ -8,6 +9,8 @@ void signal_handler(int signal) {
             break;
         case SIGUSR2:
             fprintf(stderr, template, "SIGUSR2");
+            // when p2 acknowledged, set it to 1.
+            p2_acknowledged = 1;
             break;
     }
 }
@@ -44,8 +47,10 @@ int main(int argc, char const *argv[]) {
     // main case
     default:
         // register signal
-        signal(SIGUSR1, signal_handler);
-        signal(SIGUSR2, signal_handler);
+        if (signal(SIGUSR1, signal_handler) == SIG_ERR || signal(SIGUSR2, signal_handler) == SIG_ERR) {
+            perror("p1 signal register");
+            return -1;
+        }
         // open write fifo
         int fifo_write;
         if ((fifo_write = open(fifo_path, O_WRONLY)) < 0) {
@@ -58,6 +63,8 @@ int main(int argc, char const *argv[]) {
             // prompt
             fprintf(stderr, "p1 %u enter data: ", getpid());
             fgets(package.chunk, sizeof(package.chunk), stdin);
+            // remove trailing CR and LF
+            package.chunk[strcspn(package.chunk, "\r\n")] = 0;
             package.size = strlen(package.chunk);
             // check if write ok
             // for -1 is all 1 in binary, use bitwise NOT and logical NOT to determine if they're both -1.
@@ -71,9 +78,12 @@ int main(int argc, char const *argv[]) {
                 fprintf(stderr, "p1 sent %hu bytes to p2\n", (uint16_t)(package.size + sizeof(package.size)));
             }
             // I use SIGUSR1 to tell subprocess to read.
-            fprintf(stderr, "p1 %u send SIGUSR1 to p2 %u\n", getpid(), childpid);
+            fprintf(stderr, "p1 %u tells p2 %u to read data by SIGUSR1\n", getpid(), childpid);
             kill(childpid, SIGUSR1);
-            usleep(100);
+            p2_acknowledged = 0;
+            // wait for p2 to acknowledge.
+            while (!p2_acknowledged)
+                usleep(100);
         }
         fprintf(stderr, "p1 stdin eofed! exiting\n");
         close(fifo_write);
