@@ -59,19 +59,26 @@ int main(int argc, char const *argv[]) {
             fprintf(stderr, "p1 %u enter data: ", getpid());
             fgets(package.chunk, sizeof(package.chunk), stdin);
             package.size = strlen(package.chunk);
-            // I use SIGUSR1 to tell subprocess to read.
-            kill(childpid, SIGUSR1);
             // check if write ok
-            // for -1 is all 1 in binary, use bitwise NOT and logical NOT to determine if they're both non -1.
-            if (!~write(fifo_write, &package.size, sizeof(package.size)) && !~write(fifo_write, package.chunk, package.size)) {
+            // for -1 is all 1 in binary, use bitwise NOT and logical NOT to determine if they're both -1.
+            if (!(write(fifo_write, &package.size, sizeof(package.size)) > 0 && write(fifo_write, package.chunk, package.size) > 0)) {
+                fprintf(stderr, "p1 write error!\n");
                 perror("fifo write");
                 close(fifo_write);
                 return EXIT_FAILURE;
             }
+            else {
+                fprintf(stderr, "p1 sent %hu bytes to p2\n", (uint16_t)(package.size + sizeof(package.size)));
+            }
+            // I use SIGUSR1 to tell subprocess to read.
             fprintf(stderr, "p1 %u send SIGUSR1 to p2 %u\n", getpid(), childpid);
+            kill(childpid, SIGUSR1);
+            usleep(100);
         }
+        fprintf(stderr, "p1 stdin eofed! exiting\n");
         close(fifo_write);
         break;
     }
+    kill(childpid, SIGTERM);
     return 0;
 }
