@@ -64,9 +64,9 @@ int main(int argc, char const *argv[]) {
         for (;;) {
             // prompt
             fprintf(stderr, "p1 %u enter data: ", getpid());
+            fgets(package.chunk, sizeof(package.chunk), stdin);
             if (feof(stdin))
                 break;
-            fgets(package.chunk, sizeof(package.chunk), stdin);
             // remove trailing CR and LF
             package.chunk[strcspn(package.chunk, "\r\n")] = 0;
             package.size = strlen(package.chunk);
@@ -89,7 +89,7 @@ int main(int argc, char const *argv[]) {
             while (!p2_acknowledged)
                 usleep(100);
         }
-        fprintf(stderr, "p1 stdin eofed! exiting\n");
+        fprintf(stderr, "\np1 stdin eofed! exiting\n");
     EXIT:
         close(fifo_write);
         break;
