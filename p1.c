@@ -61,9 +61,11 @@ int main(int argc, char const *argv[]) {
         }
         lab7_package_t package;
         // while stdin is open
-        for (; !feof(stdin);) {
+        for (;;) {
             // prompt
             fprintf(stderr, "p1 %u enter data: ", getpid());
+            if (feof(stdin))
+                break;
             fgets(package.chunk, sizeof(package.chunk), stdin);
             // remove trailing CR and LF
             package.chunk[strcspn(package.chunk, "\r\n")] = 0;
